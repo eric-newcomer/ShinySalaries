@@ -1,47 +1,106 @@
 ## app.R ##
+library(shiny)
+library(shinythemes)
+library(DT)
 library(shinydashboard)
+library(tidyverse)
 
-ui <- dashboardPage(
-    dashboardHeader(title = "CareerSight"),
-    dashboardSidebar(
-        sidebarMenu(
-            menuItem("Dashboard", tabName = "dashboard", icon = icon("dashboard")),
-            menuItem("Widgets", tabName = "widgets", icon = icon("th"))
+salaries <- read.csv("college-salaries/degrees-that-pay-back.csv")
+
+card <- function(.img, .species, .sepal.length) {
+    HTML(
+        paste0(
+            '<div class="card">
+                  <img src="', .img, '" style="width:100%">
+                      <div class="container">
+                          <h4><i>', .species, '</i></h4>
+                          <hr>
+                          <p>Sepal Length: ', .sepal.length, '</p>
+                      </div>
+              </div>')
+    )
+}
+
+hi <- "https://www.plant-world-seeds.com/images/item_images/000/007/023/large_square/iris_baby_blue.jpg?1500653527"
+
+
+ui <- fluidPage( 
+    tags$head(tags$style('.card {
+                         width: 250px;
+                       clear: both;
+                       /* Add shadows to create the "card" effect */
+                       box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2);
+                       transition: 0.3s;
+                       }
+                       /* On mouse-over, add a deeper shadow */
+                       .card:hover {
+                       box-shadow: 0 8px 16px 0 rgba(0,0,0,0.2);
+                       }
+                       /* Add some padding inside the card container */
+                       .container {
+                       width: 250px;
+                       padding: 2px 16px;
+                       }')),
+    
+    theme = shinytheme("flatly"),
+    titlePanel("CareerSight"),
+    
+    sidebarLayout(
+        sidebarPanel(
+            helpText("Figure out which Majors pay you back."),
+            
+            selectInput("var", 
+                        label = "Sort college majors by...",
+                        choices = c("Starting Median Salary", 
+                                    "Mid Career Median Salary",
+                                    "Percent change from Starting to Mid Career Salary", 
+                                    "Mid Career 10th Percentile Salary", 
+                                    "Mid Career 25th Percentile Salary",
+                                    "Mid Career 75th Percentile Salary", 
+                                    "Mid Career 90th Percentile Salary"),
+                        selected = "Starting Median Salary"),
+            
+            sliderInput("range", 
+                        label = "Range of interest:",
+                        min = 0, max = 100, value = c(0, 100))
+        ),
+        
+        mainPanel(
+            h2("Highest Paying College Majors by Category"),  
+            textOutput("selected_var"),
+            DT::dataTableOutput("mytable"),
         )
     ),
-    dashboardBody(
-        tabItems(
-            # First tab content
-            tabItem(tabName = "dashboard",
-                    fluidRow(
-                        h1("At a glance...")
-                    ),
-                    fluidRow(
-                        box(plotOutput("plot1", height = 250)),
-                        
-                        box(
-                            title = "Controls",
-                            sliderInput("slider", "Number of observations:", 1, 100, 50)
-                        )
-                    )
-            ),
-            
-            # Second tab content
-            tabItem(tabName = "widgets",
-                    h2("Widgets tab content")
-            )
-        )
-    )
+    uiOutput("cards")
 )
 
 server <- function(input, output) {
-    set.seed(122)
-    histdata <- rnorm(500)
-    
-    output$plot1 <- renderPlot({
-        data <- histdata[seq_len(input$slider)]
-        hist(data)
+    output$selected_var <- renderText({ 
+        paste("You are sorting by", input$var)
     })
+    output$cards <- renderUI({
+        
+        # First make the cards
+        args <- lapply(1:4, function(.x) card(hi,
+                                              .species = iris[.x, "Species"],
+                                              .sepal.length = iris[.x, "Sepal.Length"]))
+        
+        # Make sure to add other arguments to the list:
+        args$cellArgs <- list(
+            style = "
+        width: auto;
+        height: auto;
+        margin: 5px;
+        ")
+        
+        # basically the same as flowLayout(cards[[1]], cards[[2]],...)
+        do.call(shiny::flowLayout, args)
+        
+    })
+    output$mytable = DT::renderDataTable({
+        salaries
+    })
+    
 }
 
 shinyApp(ui, server)
